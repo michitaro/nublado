@@ -26,7 +26,7 @@ RUN  pip3 install \
       'jupyterhubutils>=0.5.3' \
       'namespacedkubespawner>=0.0.19' \
       jupyterlab \
-      jupyterhub \
+      'jupyterhub>=1.0.0' \
       git+https://github.com/mogthesprog/jwtauthenticator.git \
       git+https://github.com/jupyterhub/oauthenticator.git@04d664e559275c0c705f1882ce1307cc47227594
 RUN  jupyter serverextension enable --py jupyterlab --sys-prefix
