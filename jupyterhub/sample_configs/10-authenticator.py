@@ -3,7 +3,6 @@ variable, which must be one of "github", "cilogon" or "jwt", and defaults to
 "github".
 '''
 
-import asyncio
 import json
 import os
 import oauthenticator
@@ -14,6 +13,7 @@ from jwtauthenticator.jwtauthenticator import JSONWebTokenAuthenticator
 from jwtauthenticator.jwtauthenticator import JSONWebTokenLoginHandler
 from oauthenticator.common import next_page_from_links
 from tornado import gen, web
+from tornado.concurrent import run_on_executor
 from tornado.httpclient import HTTPRequest, AsyncHTTPClient, HTTPError
 
 # Get authenticator type; default to "github"
@@ -54,21 +54,19 @@ class LSSTGitHubAuth(oauthenticator.GitHubOAuthenticator):
 
     login_handler = oauthenticator.GitHubLoginHandler
 
-    @gen.coroutine
-    def authenticate(self, handler, data=None):
+    async def authenticate(self, handler, data=None):
         """Check for deny list membership too."""
         userdict = yield super().authenticate(handler, data)
         denylist = os.environ.get('GITHUB_ORGANIZATION_DENYLIST')
         if denylist:
             self.log.debug("Denylist `%s` found." % denylist)
             denylist = denylist.split(',')
-            denied = yield self._check_denylist(userdict, denylist)
+            denied = self._check_denylist(userdict, denylist)
             if denied:
                 self.log.warning("Rejecting user: denylisted")
                 userdict = None
         return userdict
 
-    @gen.coroutine
     def _check_denylist(self, userdict, denylist):
         if ("auth_state" not in userdict or not userdict["auth_state"]):
             self.log.warning("User doesn't have auth_state: rejecting.")
@@ -89,7 +87,7 @@ class LSSTGitHubAuth(oauthenticator.GitHubOAuthenticator):
         self.log.debug("User not in denylist %s" % str(denylist))
         return False
 
-    @gen.coroutine
+    @run_on_executor
     def pre_spawn_start(self, user, spawner):
         """Add extra configuration from auth_state.
         """
@@ -183,14 +181,13 @@ class LSSTCILogonAuth(oauthenticator.CILogonOAuthenticator):
     forbidden_groups = os.environ.get("CILOGON_GROUP_DENYLIST")
     additional_username_claims = ["uid"]
 
-    @gen.coroutine
-    def authenticate(self, handler, data=None):
+    async def authenticate(self, handler, data=None):
         """Rely on the superclass to do most of the work.
         """
-        userdict = yield super().authenticate(handler, data)
+        userdict = await super().authenticate(handler, data)
 
         if userdict:
-            membership = yield self._check_group_membership(userdict)
+            membership = self._check_group_membership(userdict)
             if not membership:
                 userdict = None
         if userdict and "cilogon_user" in userdict["auth_state"]:
@@ -205,7 +202,6 @@ class LSSTCILogonAuth(oauthenticator.CILogonOAuthenticator):
             userdict["name"] = username
         return userdict
 
-    @gen.coroutine
     def _check_group_membership(self, userdict):
         if ("auth_state" not in userdict or not userdict["auth_state"]):
             self.log.warn("User doesn't have auth_state")
@@ -213,7 +209,7 @@ class LSSTCILogonAuth(oauthenticator.CILogonOAuthenticator):
         ast = userdict["auth_state"]
         cu = ast["cilogon_user"]
         if "isMemberOf" in cu:
-            has_member = yield self._check_member_of(cu["isMemberOf"])
+            has_member = self._check_member_of(cu["isMemberOf"])
             if not has_member:
                 return False
         if ("token_response" not in ast or not ast["token_response"] or
@@ -225,18 +221,11 @@ class LSSTCILogonAuth(oauthenticator.CILogonOAuthenticator):
                                                      indent=4))
         return True
 
-    @gen.coroutine
-    def _return_groups(self, grouplist):
-        grps = [x["name"] for x in grouplist]
-        self.log.debug("Groups: %s" % str(grps))
-        return grps
-
-    @gen.coroutine
     def _check_member_of(self, grouplist):
         self.log.info("Using isMemberOf field.")
         allowed_groups = self.allowed_groups.split(",")
         forbidden_groups = self.forbidden_groups.split(",")
-        user_groups = yield self._return_groups(grouplist)
+        user_groups = self._return_groups(grouplist)
         deny = list(set(forbidden_groups) & set(user_groups))
         if deny:
             self.log.warning("User in forbidden group: %s" % str(deny))
@@ -251,8 +240,13 @@ class LSSTCILogonAuth(oauthenticator.CILogonOAuthenticator):
         self.log.warning("User not in any groups %s" % str(allowed_groups))
         return False
 
+    def _return_groups(self, grouplist):
+        grps = [x["name"] for x in grouplist]
+        self.log.debug("Groups: %s" % str(grps))
+        return grps
+    
     # We should refactor this out into a mixin class.
-    @gen.coroutine
+    @gen.run_on_executor
     def pre_spawn_start(self, user, spawner):
         """Add extra configuration from auth_state.
         """
@@ -385,7 +379,7 @@ class LSSTJWTLoginHandler(JSONWebTokenLoginHandler):
 
         self.redirect(_url)
 
-    def _mogrify_auth_state(self,auth_state):
+    def _mogrify_auth_state(self, auth_state):
         astate = dict(auth_state)
         self.log.debug("Pre-mogrification auth state: %r" % astate)
         #
@@ -410,13 +404,15 @@ class LSSTJWTLoginHandler(JSONWebTokenLoginHandler):
             return False
         return True
 
+
 class LSSTJWTLogoutHandler(LogoutHandler):
     """Redirect to OAuth2 sign_in"""
 
     async def render_logout_page(self):
-        logout_url=os.getenv("LOGOUT_URL") or "/oauth2/sign_in"
+        logout_url = os.getenv("LOGOUT_URL") or "/oauth2/sign_in"
         self.redirect(logout_url, permanent=False)
 
+        
 class LSSTJWTAuth(JSONWebTokenAuthenticator):
     enable_auth_state = True
     header_name = "X-Portal-Authorization"
@@ -428,7 +424,7 @@ class LSSTJWTAuth(JSONWebTokenAuthenticator):
         ]
 
     # We should refactor this out into a mixin class.
-    @gen.coroutine
+    @run_on_executor
     def pre_spawn_start(self, user, spawner):
         """Add extra configuration from auth_state.
         """

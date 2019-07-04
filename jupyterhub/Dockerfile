@@ -9,7 +9,7 @@ RUN  alternatives --install /usr/bin/python3 python3 /usr/bin/python36 50 && \
       python3 -m ensurepip
 RUN  pip3 install --upgrade pip setuptools
 ENV  PYCURL_SSL_LIBRARY=openssl
-# Need master versions of authenticator and hub
+# Need master version of jwt and oauth authenticators
 RUN  pip3 install \
       tornado \
       ipykernel \
@@ -23,7 +23,7 @@ RUN  pip3 install \
       'requests>=2.0.0,<3.0.0' \
       'jupyterhubutils>=0.5.3' \
       'namespacedkubespawner>=0.0.19' \
-      git+https://github.com/jupyterhub/jupyterhub.git \
+      'jupyterhub>=1.0.0' \
       git+https://github.com/mogthesprog/jwtauthenticator.git \
       git+https://github.com/jupyterhub/oauthenticator.git
 RUN pip3 install --upgrade --pre \
@@ -46,5 +46,5 @@ RUN  useradd -m -g jovyan -u 768 -c "JupyterHub User" jovyan
 USER 768:768
 LABEL description="Science Platform Notebook Aspect: jupyterhub" \
        name="lsstsqre/sciplat-hub" \
-       version="0.15.4"
+       version="exp_0.15.5"
 CMD [ "/opt/lsst/software/jupyterhub/hublauncher.sh" ]
