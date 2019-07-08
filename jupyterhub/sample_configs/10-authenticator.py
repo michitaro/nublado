@@ -244,7 +244,7 @@ class LSSTCILogonAuth(oauthenticator.CILogonOAuthenticator):
         grps = [x["name"] for x in grouplist]
         self.log.debug("Groups: %s" % str(grps))
         return grps
-    
+
     # We should refactor this out into a mixin class.
     @gen.run_on_executor
     def pre_spawn_start(self, user, spawner):
@@ -412,7 +412,7 @@ class LSSTJWTLogoutHandler(LogoutHandler):
         logout_url = os.getenv("LOGOUT_URL") or "/oauth2/sign_in"
         self.redirect(logout_url, permanent=False)
 
-        
+
 class LSSTJWTAuth(JSONWebTokenAuthenticator):
     enable_auth_state = True
     header_name = "X-Portal-Authorization"

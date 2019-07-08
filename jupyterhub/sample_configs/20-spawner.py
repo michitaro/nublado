@@ -214,7 +214,7 @@ class LSSTSpawner(namespacedkubespawner.NamespacedKubeSpawner):
             return ldescs[0]
         # Now we have the hash of "recommended"; next we match it to
         #  another tag.
-        ltags = [ x.split(":")[-1] for x in lnames ]
+        ltags = [x.split(":")[-1] for x in lnames]
         for ltag in ltags:
             if ltag == "recommended":
                 continue
@@ -390,7 +390,7 @@ class LSSTSpawner(namespacedkubespawner.NamespacedKubeSpawner):
                     image_size = self._sizemap[size]
                 clear_dotlocal = self.user_options.get('clear_dotlocal')
         if (image.endswith(":recommended") and self.recommended_tag
-            and self.recommended_tag != "NOTFOUND"):
+                and self.recommended_tag != "NOTFOUND"):
             image = image[:-(len(":recommended"))] + ":" + self.recommended_tag
         mem_limit = os.getenv('LAB_MEM_LIMIT') or '2048M'
         cpu_limit = os.getenv('LAB_CPU_LIMIT') or 1.0
